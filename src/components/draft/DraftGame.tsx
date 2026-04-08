@@ -47,6 +47,7 @@ export function DraftGame({ roomInfo, onBattleStart, onLeave }: Props) {
 
       // Check if both players finished picking (5 heroes each with actual hero data)
       if (data.phase === 'pick' && !battleTriggered.current) {
+        console.log('DRAFT UPDATE:', data.phase, 'p1picks:', countPicks(data.player1), 'p2picks:', countPicks(data.player2), 'bans:', countBans(data.player1), countBans(data.player2));
         const p1Picks = countPicks(data.player1);
         const p2Picks = countPicks(data.player2);
 
