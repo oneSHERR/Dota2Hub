@@ -15,15 +15,19 @@ const STATS = [
   { icon: Shield, value: '7.41b', label: 'Актуальный патч' },
 ];
 
-export function HomePage() {
-  const metaCarry = META_HEROES.carry.slice(0, 4);
-  const metaMid = META_HEROES.mid.slice(0, 4);
+const META_SECTIONS = [
+  { key: 'carry' as const, label: 'Pos 1 — Carry', color: 'text-dota-gold' },
+  { key: 'mid' as const, label: 'Pos 2 — Mid', color: 'text-blue-400' },
+  { key: 'offlane' as const, label: 'Pos 3 — Offlane', color: 'text-red-400' },
+  { key: 'support4' as const, label: 'Pos 4 — Roamer', color: 'text-purple-400' },
+  { key: 'support5' as const, label: 'Pos 5 — Support', color: 'text-emerald-400' },
+];
 
+export function HomePage() {
   return (
     <div className="relative overflow-hidden">
       {/* ===== HERO SECTION ===== */}
       <section className="relative min-h-[90vh] flex items-center justify-center px-4">
-        {/* Background: hero mosaic like dota2.com */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-[#0d1117] via-[#0a0e13] to-[#0d1117]" />
           <div className="absolute inset-0 grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-0.5 opacity-[0.07]">
@@ -37,7 +41,6 @@ export function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a0e13]/80 via-transparent to-[#0a0e13]/80" />
           <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-red-600/5 rounded-full blur-[150px]" />
           <div className="absolute bottom-1/4 right-1/3 w-[400px] h-[400px] bg-amber-500/5 rounded-full blur-[120px]" />
-          <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
         </div>
 
         <div className="relative z-10 text-center max-w-4xl">
@@ -84,15 +87,16 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ===== META HEROES ===== */}
+      {/* ===== META HEROES — ALL 5 POSITIONS ===== */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <div className="flex items-center gap-3 mb-8">
           <TrendingUp className="w-5 h-5 text-dota-gold" />
           <h2 className="font-display text-2xl font-bold text-white">Мета герои 7.41b</h2>
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <MetaBlock label="Carry / Pos 1" color="text-dota-gold" borderColor="dota-gold" heroes={metaCarry} />
-          <MetaBlock label="Mid / Pos 2" color="text-blue-400" borderColor="blue-400" heroes={metaMid} />
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {META_SECTIONS.map(({ key, label, color }) => (
+            <MetaBlock key={key} label={label} color={color} heroes={META_HEROES[key].slice(0, 4)} />
+          ))}
         </div>
       </section>
 
@@ -132,7 +136,7 @@ export function HomePage() {
   );
 }
 
-function MetaBlock({ label, color, borderColor, heroes }: { label: string; color: string; borderColor: string; heroes: string[] }) {
+function MetaBlock({ label, color, heroes }: { label: string; color: string; heroes: string[] }) {
   return (
     <div className="rounded-2xl bg-gradient-to-br from-dota-card to-dota-bg border border-dota-border/50 p-5">
       <div className={`text-xs font-body ${color} uppercase tracking-wider mb-3 font-medium`}>{label}</div>
@@ -142,7 +146,7 @@ function MetaBlock({ label, color, borderColor, heroes }: { label: string; color
           if (!hero) return null;
           return (
             <Link to="/wiki" key={name} className="group">
-              <div className={`rounded-lg overflow-hidden border border-dota-border/30 group-hover:border-${borderColor}/40 transition-all`}>
+              <div className="rounded-lg overflow-hidden border border-dota-border/30 group-hover:border-white/20 transition-all">
                 <img src={hero.img} alt={hero.localized_name} className="w-full aspect-[16/9] object-cover group-hover:scale-110 transition-transform duration-300" />
               </div>
               <span className="text-[10px] font-body text-slate-400 mt-1 block truncate text-center">{hero.localized_name}</span>
