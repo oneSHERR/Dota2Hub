@@ -45,6 +45,6 @@ npm run dev
 2. Push в `main` — деплой автоматический через GitHub Actions
 3. Settings → Pages → Source: **GitHub Actions**
 
-## Лицензия 
+## Лицензия  
 
 MIT
