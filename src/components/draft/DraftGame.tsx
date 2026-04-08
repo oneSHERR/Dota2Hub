@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { subscribeToRoom, updateRoom, deleteRoom, saveMatchResult, updateUserStats } from '@/firebase';
+import { subscribeToRoom, updateRoom, saveMatchResult, updateUserStats } from '@/firebase';
 import { ALL_HEROES } from '@/data/heroes';
 import { analyzeDraft } from '@/data/matchups';
 import { getAttrColor } from '@/lib/utils';
@@ -13,6 +13,13 @@ interface Props {
   roomInfo: RoomInfo;
   onGameEnd: (data: any) => void;
   onLeave: () => void;
+}
+
+// Helper: Firebase may store arrays as objects, normalize to array
+function toArray(val: any): any[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return Object.values(val);
 }
 
 export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
@@ -28,30 +35,22 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
       if (!data) return;
       setRoomData(data);
 
-      // Check if all picks are done
       if (data.phase === 'pick') {
-        const p1Picks = data.player1?.slots?.filter((s: any) => s.hero !== null).length || 0;
-        const p2Picks = data.player2?.slots?.filter((s: any) => s.hero !== null).length || 0;
+        const p1Slots = toArray(data.player1?.slots);
+        const p2Slots = toArray(data.player2?.slots);
+        const p1Picks = p1Slots.filter((s: any) => s.hero !== null).length;
+        const p2Picks = p2Slots.filter((s: any) => s.hero !== null).length;
 
         if (p1Picks >= 5 && p2Picks >= 5 && !data.analysis) {
-          // Both teams full → analyze
           const analysis = analyzeDraft(
-            data.player1.slots,
-            data.player2.slots,
+            p1Slots,
+            p2Slots,
             data.player1.name,
             data.player2.name
           );
-
           const winner = analysis.predictedWinner;
+          updateRoom(roomId, { phase: 'result', analysis, winner, currentTurn: null });
 
-          updateRoom(roomId, {
-            phase: 'result',
-            analysis,
-            winner,
-            currentTurn: null,
-          });
-
-          // Save match result
           if (user) {
             saveMatchResult({
               roomId,
@@ -59,31 +58,24 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
               player1Name: data.player1.name,
               player2Uid: data.player2.uid,
               player2Name: data.player2.name,
-              player1Slots: data.player1.slots,
-              player2Slots: data.player2.slots,
+              player1Slots: p1Slots,
+              player2Slots: p2Slots,
               winner,
               analysis,
             });
 
-            // Update stats
             const isP1 = playerId === 'player1';
-            if (winner === 'draw') {
-              updateUserStats(user.uid, 'draw');
-            } else if ((winner === 'player1' && isP1) || (winner === 'player2' && !isP1)) {
-              updateUserStats(user.uid, 'win');
-            } else {
-              updateUserStats(user.uid, 'loss');
-            }
+            if (winner === 'draw') updateUserStats(user.uid, 'draw');
+            else if ((winner === 'player1' && isP1) || (winner === 'player2' && !isP1)) updateUserStats(user.uid, 'win');
+            else updateUserStats(user.uid, 'loss');
           }
         }
       }
 
-      // Navigate to results if phase changes
       if (data.phase === 'result' && data.analysis) {
         onGameEnd(data);
       }
     });
-
     return unsub;
   }, [roomId]);
 
@@ -97,34 +89,43 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
   const usedHeroIds = useMemo(() => {
     if (!roomData) return new Set<number>();
     const ids = new Set<number>();
-    const bans1 = roomData.player1?.bans || [];
-    const bans2 = roomData.player2?.bans || [];
-    const slots1 = roomData.player1?.slots || [];
-    const slots2 = roomData.player2?.slots || [];
+    const bans1 = toArray(roomData.player1?.bans);
+    const bans2 = toArray(roomData.player2?.bans);
+    const slots1 = toArray(roomData.player1?.slots);
+    const slots2 = toArray(roomData.player2?.slots);
 
     bans1.forEach((h: any) => h && ids.add(h.id));
     bans2.forEach((h: any) => h && ids.add(h.id));
-    slots1.forEach((s: any) => s.hero && ids.add(s.hero.id));
-    slots2.forEach((s: any) => s.hero && ids.add(s.hero.id));
+    slots1.forEach((s: any) => s?.hero && ids.add(s.hero.id));
+    slots2.forEach((s: any) => s?.hero && ids.add(s.hero.id));
 
     return ids;
   }, [roomData]);
 
-  // Filter heroes
+  // Filter heroes — sorted by attr like in Dota 2
   const filteredHeroes = useMemo(() => {
-    return ALL_HEROES.filter(h => {
-      if (usedHeroIds.has(h.id)) return false;
-      if (search && !h.localized_name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (attrFilter !== 'all' && h.primary_attr !== attrFilter) return false;
-      return true;
-    });
+    const attrOrder = { str: 0, agi: 1, int: 2, all: 3 };
+    return ALL_HEROES
+      .filter(h => {
+        if (usedHeroIds.has(h.id)) return false;
+        if (search && !h.localized_name.toLowerCase().includes(search.toLowerCase())) return false;
+        if (attrFilter === 'all') return true;
+        if (attrFilter === 'uni') return h.primary_attr === 'all';
+        return h.primary_attr === attrFilter;
+      })
+      .sort((a, b) => {
+        const ao = attrOrder[a.primary_attr as keyof typeof attrOrder] ?? 4;
+        const bo = attrOrder[b.primary_attr as keyof typeof attrOrder] ?? 4;
+        if (ao !== bo) return ao - bo;
+        return a.localized_name.localeCompare(b.localized_name);
+      });
   }, [search, attrFilter, usedHeroIds]);
 
   const handleBan = async (hero: Hero) => {
     if (!isMyTurn || phase !== 'ban') return;
 
-    const myBans = [...(myData?.bans || []), hero];
-    const totalBans = (roomData.player1?.bans?.length || 0) + (roomData.player2?.bans?.length || 0) + 1;
+    const myBans = [...toArray(myData?.bans), hero];
+    const totalBans = toArray(roomData.player1?.bans).length + toArray(roomData.player2?.bans).length + 1;
     const maxBans = (roomData.banCount || 2) * 2;
 
     const updates: any = {
@@ -133,7 +134,6 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
       turnNumber: (roomData.turnNumber || 0) + 1,
     };
 
-    // If all bans done, switch to pick phase
     if (totalBans >= maxBans) {
       updates.phase = 'pick';
       updates.currentTurn = 'player1';
@@ -146,7 +146,7 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
   const handlePick = async (hero: Hero) => {
     if (!isMyTurn || phase !== 'pick' || selectedPosition === null) return;
 
-    const newSlots = [...(myData?.slots || [])];
+    const newSlots = [...toArray(myData?.slots)];
     const idx = newSlots.findIndex((s: DraftSlot) => s.position === selectedPosition);
     if (idx === -1 || newSlots[idx].hero !== null) return;
 
@@ -206,37 +206,21 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
 
       {/* Teams */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4">
-        {/* My team */}
-        <TeamPanel
-          label="Твоя команда"
-          player={myData}
-          isMe
-          phase={phase}
-          selectedPosition={selectedPosition}
-          onSelectPosition={setSelectedPosition}
-        />
-
-        {/* VS */}
+        <TeamPanel label="Твоя команда" player={myData} isMe phase={phase} selectedPosition={selectedPosition} onSelectPosition={setSelectedPosition} />
         <div className="hidden lg:flex items-center justify-center">
           <div className="w-16 h-16 rounded-full bg-dota-card border-2 border-dota-border flex items-center justify-center">
             <Swords className="w-6 h-6 text-dota-gold" />
           </div>
         </div>
-
-        {/* Opponent */}
-        <TeamPanel
-          label="Соперник"
-          player={opponentData}
-          phase={phase}
-        />
+        <TeamPanel label="Соперник" player={opponentData} phase={phase} />
       </div>
 
       {/* Bans display */}
-      {(roomData.player1?.bans?.length > 0 || roomData.player2?.bans?.length > 0) && (
+      {(toArray(roomData.player1?.bans).length > 0 || toArray(roomData.player2?.bans).length > 0) && (
         <div className="flex items-center gap-4 p-3 rounded-xl bg-dota-card/50 border border-dota-border/50">
           <Ban className="w-4 h-4 text-red-400 flex-shrink-0" />
           <div className="flex flex-wrap gap-2">
-            {[...(roomData.player1?.bans || []), ...(roomData.player2?.bans || [])].map((h: Hero, i: number) => (
+            {[...toArray(roomData.player1?.bans), ...toArray(roomData.player2?.bans)].map((h: Hero, i: number) => (
               h && (
                 <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
                   <img src={h.icon} alt={h.localized_name} className="w-5 h-5 rounded" />
@@ -251,9 +235,7 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
       {/* Pick instruction */}
       {phase === 'pick' && isMyTurn && selectedPosition === null && (
         <div className="p-3 rounded-xl bg-dota-gold/10 border border-dota-gold/20 text-center">
-          <span className="text-sm font-body text-dota-gold">
-            Выбери позицию в своей команде, затем выбери героя
-          </span>
+          <span className="text-sm font-body text-dota-gold">Выбери позицию в своей команде, затем выбери героя</span>
         </div>
       )}
 
@@ -277,26 +259,28 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
           </div>
 
           <div className="flex gap-1.5">
-            {['all', 'str', 'agi', 'int'].map(attr => (
+            {[
+              { key: 'all', label: 'Все', color: '#ffffff' },
+              { key: 'str', label: 'STR', color: '#EC3D06' },
+              { key: 'agi', label: 'AGI', color: '#26E030' },
+              { key: 'int', label: 'INT', color: '#00B4F0' },
+              { key: 'uni', label: 'UNI', color: '#cccccc' },
+            ].map(({ key, label, color }) => (
               <button
-                key={attr}
-                onClick={() => setAttrFilter(attr)}
+                key={key}
+                onClick={() => setAttrFilter(key)}
                 className={`px-3 py-2 rounded-lg text-xs font-body font-bold transition-colors ${
-                  attrFilter === attr
-                    ? attr === 'all'
-                      ? 'bg-white/10 text-white'
-                      : `bg-opacity-20 text-white`
-                    : 'bg-dota-bg text-slate-500 hover:text-slate-300'
+                  attrFilter === key ? 'shadow-lg' : 'bg-dota-bg text-slate-500 hover:text-slate-300'
                 }`}
-                style={attrFilter === attr && attr !== 'all' ? { backgroundColor: getAttrColor(attr) + '20', color: getAttrColor(attr) } : {}}
+                style={attrFilter === key ? { backgroundColor: color + '20', color } : {}}
               >
-                {attr === 'all' ? 'Все' : attr === 'str' ? 'STR' : attr === 'agi' ? 'AGI' : 'INT'}
+                {label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Heroes grid */}
+        {/* Heroes grid — grouped by attribute like dota2.com */}
         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 max-h-[400px] overflow-y-auto pr-1">
           {filteredHeroes.map(hero => {
             const canClick = isMyTurn && (phase === 'ban' || (phase === 'pick' && selectedPosition !== null));
@@ -312,22 +296,14 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
                 }`}
                 title={hero.localized_name}
               >
-                <img
-                  src={hero.img}
-                  alt={hero.localized_name}
-                  className="w-full aspect-[16/9] object-cover"
-                  loading="lazy"
-                />
+                <img src={hero.img} alt={hero.localized_name} className="w-full aspect-[16/9] object-cover" loading="lazy" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute bottom-0 left-0 right-0 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[9px] font-body text-white leading-none block truncate text-center">
-                    {hero.localized_name}
-                  </span>
+                  <span className="text-[9px] font-body text-white leading-none block truncate text-center">{hero.localized_name}</span>
                 </div>
-                {/* Attr dot */}
                 <div
                   className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full"
-                  style={{ backgroundColor: getAttrColor(hero.primary_attr) }}
+                  style={{ backgroundColor: hero.primary_attr === 'all' ? '#ccc' : getAttrColor(hero.primary_attr) }}
                 />
               </button>
             );
@@ -340,12 +316,7 @@ export function DraftGame({ roomInfo, onGameEnd, onLeave }: Props) {
 
 // ========== TEAM PANEL ==========
 function TeamPanel({
-  label,
-  player,
-  isMe,
-  phase,
-  selectedPosition,
-  onSelectPosition,
+  label, player, isMe, phase, selectedPosition, onSelectPosition,
 }: {
   label: string;
   player: any;
@@ -354,7 +325,7 @@ function TeamPanel({
   selectedPosition?: Position | null;
   onSelectPosition?: (p: Position) => void;
 }) {
-  const slots: DraftSlot[] = player?.slots || [];
+  const slots = toArray(player?.slots);
   const borderColor = isMe ? 'border-dota-radiant/30' : 'border-dota-dire/30';
 
   return (
@@ -367,7 +338,7 @@ function TeamPanel({
 
       <div className="space-y-2">
         {([1, 2, 3, 4, 5] as Position[]).map(pos => {
-          const slot = slots.find((s: DraftSlot) => s.position === pos);
+          const slot = slots.find((s: DraftSlot) => s?.position === pos);
           const hero = slot?.hero;
           const isSelected = isMe && selectedPosition === pos;
           const canSelect = isMe && phase === 'pick' && !hero && onSelectPosition;
@@ -387,7 +358,6 @@ function TeamPanel({
                   : 'border border-dota-border/20 bg-dota-bg/20'
               }`}
             >
-              {/* Position badge */}
               <div className="w-8 h-8 rounded-lg bg-dota-bg flex items-center justify-center flex-shrink-0">
                 <span className="text-xs font-mono font-bold text-slate-400">{pos}</span>
               </div>
