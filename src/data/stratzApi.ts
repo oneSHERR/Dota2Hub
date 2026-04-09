@@ -2,7 +2,7 @@
 // Подключение к STRATZ GraphQL API для получения актуальных данных
 // ВАЖНО: вставьте свой STRATZ API токен в STRATZ_TOKEN ниже
 
-const STRATZ_TOKEN = 'YOUR_STRATZ_TOKEN_HERE'; // ← ЗАМЕНИ НА СВОЙ ТОКЕН
+const STRATZ_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJTdWJqZWN0IjoiN2QwMTI2MDItZDJkZS00NTQxLWI5ODktYjk3NjIzMjA5OTIwIiwiU3RlYW1JZCI6Ijg0MDEyMTQ5OSIsIkFQSVVzZXIiOiJ0cnVlIiwibmJmIjoxNzc1NzE4NTc2LCJleHAiOjE4MDcyNTQ1NzYsImlhdCI6MTc3NTcxODU3NiwiaXNzIjoiaHR0cHM6Ly9hcGkuc3RyYXR6LmNvbSJ9.U3BIoib7gRmhcpqSJZeyhsUrSiddg5ytdG5MGt3eqQE'; // ← ЗАМЕНИ НА СВОЙ ТОКЕН
 const STRATZ_API = 'https://api.stratz.com/graphiql';
 
 interface StratzHeroStat {
