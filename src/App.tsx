@@ -11,7 +11,6 @@ import { PatchNotesPage } from '@/components/patch/PatchNotesPage';
 import { TierListPage } from '@/components/tierlist/TierListPage';
 import { DraftCalculatorPage } from '@/components/calculator/DraftCalculatorPage';
 import { CounterpickQuizPage } from '@/components/counterpick/CounterpickQuizPage';
-import { NewsPage } from '@/components/news/NewsPage';
 
 function App() {
   const auth = useAuthProvider();
@@ -28,7 +27,6 @@ function App() {
             <Route path="/tierlist" element={<TierListPage />} />
             <Route path="/calculator" element={<DraftCalculatorPage />} />
             <Route path="/counterpick" element={<CounterpickQuizPage />} />
-            <Route path="/news" element={<NewsPage />} />
             <Route path="/quiz" element={<QuizPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/auth" element={<AuthPage />} />
