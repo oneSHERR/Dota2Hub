@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0e13;
+  color: #e2e8f0;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0a0e13; }
+::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3a4a; }
+
+.noise-bg { position: relative; }
+.noise-bg::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+.glow-border { border: 1px solid rgba(231,76,60,0.3); box-shadow: 0 0 15px rgba(231,76,60,0.1), inset 0 0 15px rgba(231,76,60,0.05); }
+.glow-gold { box-shadow: 0 0 20px rgba(218,165,32,0.15), 0 0 40px rgba(218,165,32,0.05); }
+
+.hero-card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+.hero-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+
+.attr-str { color: #EC3D06; }
+.attr-agi { color: #26E030; }
+.attr-int { color: #00B4F0; }
+.attr-all { color: #ccc; }
+
+.slot-empty { border: 2px dashed rgba(255,255,255,0.15); transition: all 0.3s; }
+.slot-empty:hover { border-color: rgba(218,165,32,0.5); background: rgba(218,165,32,0.05); }
+.slot-filled { border: 2px solid rgba(218,165,32,0.4); box-shadow: 0 0 20px rgba(218,165,32,0.1); }
+
+.team-radiant { border-color: rgba(146,165,37,0.4); box-shadow: 0 0 20px rgba(146,165,37,0.1); }
+.team-dire { border-color: rgba(194,60,42,0.4); box-shadow: 0 0 20px rgba(194,60,42,0.1); }
+
+.page-enter { animation: slide-up 0.4s ease-out; }
+@keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.gradient-text {
+  background: linear-gradient(135deg, #daa520, #e74c3c);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* Ability cards */
+.ability-card { transition: all 0.25s ease; }
+.ability-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+.ultimate-glow { box-shadow: 0 0 0 2px rgba(218,165,32,0.4), 0 0 15px rgba(218,165,32,0.15); }
+
+/* Card hover */
+.card-hover { transition: all 0.3s ease; }
+.card-hover:hover { border-color: rgba(255,255,255,0.12); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+
+/* Live indicator */
+.stratz-live { animation: stratz-pulse 2s ease-in-out infinite; }
+@keyframes stratz-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+}
