@@ -144,7 +144,6 @@ async function fetchHeroStats(): Promise<OpenDotaHeroStat[]> {
   }
 }
   return data;
-}
 
 // ========== ТИР-ЛИСТ ЛОГИКА ==========
 interface TierHero {
